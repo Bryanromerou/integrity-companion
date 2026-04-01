@@ -98,6 +98,8 @@ function getSignalDescription(signal) {
       return `Display ${m.change}: ${m.previousCount} → ${m.currentCount}`;
     case 'focus-loss':
       return `Window lost focus (${m.source})`;
+    case 'focus-gain':
+      return `Window regained focus (${m.source})`;
     case 'suspicious-shortcut':
       return `${m.combo} pressed (${m.tool})`;
     case 'clipboard-event':

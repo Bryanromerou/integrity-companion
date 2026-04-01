@@ -81,6 +81,12 @@
         severity: 'medium',
         metadata: { source: 'visibilitychange' },
       });
+    } else if (document.visibilityState === 'visible') {
+      sendSignal({
+        type: 'focus-gain',
+        severity: 'info',
+        metadata: { source: 'visibilitychange' },
+      });
     }
   });
   window.addEventListener('blur', function () {
@@ -88,6 +94,13 @@
       type: 'focus-loss',
       severity: 'medium',
       metadata: { source: 'blur' },
+    });
+  });
+  window.addEventListener('focus', function () {
+    sendSignal({
+      type: 'focus-gain',
+      severity: 'info',
+      metadata: { source: 'focus' },
     });
   });
 
