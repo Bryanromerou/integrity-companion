@@ -20,6 +20,7 @@ let reporter = null;
 let sessionId = null;
 let currentStatus = null;
 let statusBeforePause = null;
+let pauseReason = null;
 
 // Detection modules
 let processScanner = null;
@@ -29,6 +30,8 @@ let networkMonitor = null;
 let displayMonitor = null;
 let extensionScanner = null;
 let shutdownReported = false;
+let companionFocusedAt = 0;
+let browserFocused = true;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -45,6 +48,25 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  mainWindow.on('focus', () => {
+    companionFocusedAt = Date.now();
+  });
+
+  mainWindow.on('blur', () => {
+    // When the companion loses focus, wait briefly then check if the browser
+    // also doesn't have focus. If both are unfocused the user switched to a
+    // third app (e.g. Windsurf) — pause the assessment.
+    setTimeout(() => {
+      if (
+        !browserFocused &&
+        (currentStatus === 'ready' || currentStatus === 'in_progress')
+      ) {
+        pauseReason = 'focus-loss';
+        pauseAssessment(['Focus left assessment window']);
+      }
+    }, 500);
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -92,6 +114,41 @@ function initAggregator() {
         resumeAssessment();
       }
     }
+
+    // Pause when browser reports focus-loss (user switched to another tab/app)
+    if (
+      signal.type === 'focus-loss' &&
+      signal.source === 'browser' &&
+      (currentStatus === 'ready' || currentStatus === 'in_progress')
+    ) {
+      pauseReason = 'focus-loss';
+      pauseAssessment(['Focus left assessment window']);
+    }
+
+    // Resume when browser reports focus-gain (user returned to assessment tab)
+    if (
+      signal.type === 'focus-gain' &&
+      signal.source === 'browser' &&
+      currentStatus === 'paused' &&
+      pauseReason === 'focus-loss'
+    ) {
+      // Don't resume if blocking processes are still running
+      const blockerApps = processScanner
+        ? processScanner.getBlockingProcesses()
+        : [];
+      if (blockerApps.length > 0) {
+        // Switch from focus-loss pause to process-blocked pause
+        pauseReason = null;
+        sendToRenderer('pre-check-blockers', blockerApps);
+        reporter.updateStatus('paused', {
+          reason: blockerApps.join(', '),
+          apps: blockerApps,
+        });
+      } else {
+        pauseReason = null;
+        resumeAssessment();
+      }
+    }
   });
 
   aggregator.on('score-update', (score) => {
@@ -129,6 +186,29 @@ function initDetectionModules() {
 
 function initWebSocketServer() {
   wsServer = new WebSocketServer(WS_PORT, (signal) => {
+    // Track browser focus state
+    if (signal.type === 'focus-loss') {
+      browserFocused = false;
+    } else if (signal.type === 'focus-gain') {
+      browserFocused = true;
+    }
+
+    // Suppress browser focus-loss when user switches to the companion app
+    if (signal.type === 'focus-loss') {
+      const companionFocused =
+        mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused();
+      const recentlySwitched = Date.now() - companionFocusedAt < 1500;
+      if (companionFocused || recentlySwitched) {
+        console.log(
+          '[Focus] Suppressed focus-loss — user switched to companion app',
+        );
+        return;
+      }
+    }
+    // focus-gain is informational — no score penalty
+    if (signal.type === 'focus-gain') {
+      signal.severity = 'info';
+    }
     aggregator.ingest({ ...signal, source: 'browser' });
   });
 
