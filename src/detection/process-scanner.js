@@ -8,7 +8,7 @@ const SUSPICIOUS_PROCESSES = [
   { name: 'ChatGPT', pattern: /chatgpt/i, category: 'ai-tool', severity: 'critical' },
   { name: 'Cluely', pattern: /cluely/i, category: 'ai-tool', severity: 'critical' },
   { name: 'Copilot', pattern: /copilot/i, category: 'ai-tool', severity: 'high' },
-  { name: 'Cursor', pattern: /cursor/i, category: 'ai-tool', severity: 'high' },
+  { name: 'Cursor', pattern: /\bCursor\b(?!UI)/, category: 'ai-tool', severity: 'high' },
   { name: 'Windsurf', pattern: /windsurf/i, category: 'ai-tool', severity: 'high' },
   { name: 'Perplexity', pattern: /perplexity/i, category: 'ai-tool', severity: 'critical' },
   { name: 'Gemini', pattern: /gemini/i, category: 'ai-tool', severity: 'high' },
