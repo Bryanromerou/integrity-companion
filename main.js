@@ -11,7 +11,7 @@ const { ExtensionScanner } = require('./src/detection/extension-scanner');
 const { BackendReporter } = require('./src/reporting/backend-reporter');
 
 const WS_PORT = 18329;
-const ASSESSMENT_BASE_URL = 'http://localhost:3000';
+const ASSESSMENT_BASE_URL = process.env.ASSESSMENT_BASE_URL || 'https://assessment-app-ten.vercel.app';
 
 let mainWindow = null;
 let aggregator = null;
